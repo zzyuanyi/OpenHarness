@@ -194,6 +194,31 @@ OpenHarness is an open-source Python implementation designed for **researchers, 
 
 ---
 
+## 📈 Incremental Improvements
+
+OpenHarness evolves through **small, frequent, layered releases** — each version adds a focused set of capabilities while preserving backward compatibility. This incremental approach ensures the harness stays stable and predictable while steadily expanding its feature surface.
+
+### Release Cadence & Philosophy
+
+- **Rapid iteration**: v0.1.0 through v0.1.7 shipped over ~18 days, each release targeting a specific subsystem (auth, MCP transport, TUI, compaction, packaging).
+- **Layered architecture**: New capabilities are added as composable layers — the agent loop, tool registry, permission system, and MCP client are independently upgradeable.
+- **Safe defaults**: Every release preserves existing behavior; breaking changes are rare and always documented.
+- **Community-driven**: Features are prioritized by real usage patterns from the open-source community and downstream integrators.
+
+### Key Improvement Themes
+
+| Theme | Releases | What improved |
+|-------|----------|---------------|
+| **Provider Ecosystem** | v0.1.2, v0.1.4 | Multi-provider auth, Moonshot/Kimi support, compatible API profiles, Copilot OAuth |
+| **Agent Reliability** | v0.1.0, v0.1.6 | Exponential backoff retry, auto-compaction for long sessions, session resume |
+| **Tool & Protocol Surface** | v0.1.0, v0.1.5 | 43+ tools, MCP HTTP transport, auto-reconnect, JSON Schema type inference |
+| **UX & Observability** | v0.1.7, v0.1.8 | React/Ink TUI polish, Markdown rendering, dry-run preview, readiness verdicts |
+| **Multi-Agent** | v0.1.5, v0.1.6 | Subprocess teammates, background task polling, team lifecycle management |
+| **Safety** | v0.1.4 | Sensitive-path protection, hardened URL validation, permission serialization |
+
+Each release's full details are tracked in [`CHANGELOG.md`](CHANGELOG.md) and the per-release notes (`RELEASE_NOTES_v*.md`).
+
+---
 ## 🚀 Quick Start
 
 ### 1. Install
@@ -302,6 +327,75 @@ Readiness levels:
 - fix or disable broken MCP configuration
 - run the prompt directly with `oh -p "..."` or open the interactive UI with `oh`
 
+## 🏃 How to Run the Harness
+
+OpenHarness provides multiple ways to interact with the agent infrastructure, from interactive terminal UI to headless scripting.
+
+### Interactive Mode (Default)
+
+```bash
+oh          # Launch the interactive React/Ink TUI
+```
+
+The TUI provides a full interactive experience: type prompts, use slash commands (`/help`, `/plan`, `/resume`), approve or deny tool-use permissions in real-time, and switch modes on the fly.
+
+### Headless / Scripting Mode
+
+```bash
+# Single prompt → stdout (ideal for scripts and CI)
+oh -p "Explain the architecture of this codebase"
+
+# JSON output for programmatic consumption
+oh -p "List all functions in main.py" --output-format json
+
+# Stream JSON events in real-time (ideal for channels / gateways)
+oh -p "Fix the bug in parser.py" --output-format stream-json
+```
+
+### Pipe Mode
+
+```bash
+# Feed context from stdin
+echo "What does this error mean?" | oh
+cat error.log | oh -p "Diagnose this stack trace and suggest a fix"
+```
+
+### Resuming Sessions
+
+```bash
+oh --resume        # Pick a previous session from the history list
+oh -c              # Continue the most recent session
+oh -n my-session   # Start a named session for later resumption
+```
+
+### Model & Behavior Tuning
+
+```bash
+oh -m claude-sonnet-4-6          # Use a specific model
+oh --max-turns 50                # Limit agent loop iterations
+oh --effort high                 # Set reasoning effort (for thinking models)
+oh -s "You are a security auditor."  # Override the system prompt
+oh --append-system-prompt "Always write tests first."
+```
+
+### Permission Modes
+
+```bash
+oh --permission-mode auto         # Allow all tool calls without prompts
+oh --permission-mode plan          # Block all write operations (review-first)
+oh --dangerously-skip-permissions  # Bypass all permission checks (sandbox only)
+```
+
+### Advanced Flags
+
+```bash
+oh -d / --debug                   # Verbose diagnostic output
+oh --bare                         # Minimal output (no TUI, no formatting)
+oh --settings path/to/settings.json  # Use a custom settings file
+oh --mcp-config path/to/mcp.json     # Use a custom MCP server config
+```
+
+---
 ## 🔌 Provider Compatibility
 
 OpenHarness treats providers as **workflows** backed by named profiles. In day-to-day use, prefer:

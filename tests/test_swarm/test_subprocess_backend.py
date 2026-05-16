@@ -168,7 +168,7 @@ async def test_subprocess_backend_argv_preserves_windows_backslashes(
             argv=list(kwargs.get("argv") or []),
         )
 
-    win_path = r"C:\Users\simu\AppData\Roaming\uv\tools\openharness-ai\Scripts\python.exe"
+    win_path = r"C:\Users\user\AppData\Roaming\uv\tools\openharness-ai\Scripts\python.exe"
     monkeypatch.setattr(BackgroundTaskManager, "create_agent_task", _fake_create_agent_task)
     # Use the public override env var rather than monkeypatching the
     # function symbol — proved fragile under full-suite pytest module

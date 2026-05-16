@@ -6,11 +6,11 @@ from openharness.personalization.rules import merge_facts
 
 class TestExtractFacts:
     def test_extracts_ssh_host(self):
-        text = "ssh konghm@192.168.91.212 'tail -20 /var/log/syslog'"
+        text = "ssh user@192.168.1.100 'tail -20 /var/log/syslog'"
         facts = extract_facts_from_text(text)
         ssh_facts = [f for f in facts if f["type"] == "ssh_host"]
         assert len(ssh_facts) == 1
-        assert "konghm@192.168.91.212" in ssh_facts[0]["value"]
+        assert "user@192.168.1.100" in ssh_facts[0]["value"]
 
     def test_extracts_data_path(self):
         text = "ls /ext/data_auto_stage/landing/CS_sp/1d/"
