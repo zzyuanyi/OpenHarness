@@ -776,6 +776,13 @@ app.add_typer(provider_app)
 app.add_typer(cron_app)
 app.add_typer(autopilot_app)
 
+# ---- dag subcommand ----
+try:
+    from openharness.dag_native.cli import dag_app
+    app.add_typer(dag_app, name="dag", help="DAG-Native coding task planning and execution.")
+except ImportError:
+    pass  # dag_native is an optional extension
+
 
 # ---- mcp subcommands ----
 

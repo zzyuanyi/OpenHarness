@@ -153,6 +153,7 @@ OpenHarness is an open-source Python implementation designed for **researchers, 
 
 ## 📰 What's New
 
+- **Unreleased** 📊 **DAG-Native task planning**: A new `dag_native` package adds DAG-based task decomposition, critical path analysis (CPM), topological sort, and parallel subagent coordination with shared prerequisite context. Available as `oh dag plan|analyze|experiment|demo`. See [DAG-Native](#-dag-native-task-graph-planning--parallel-coordination) for details.
 - **Unreleased** 🔍 **Dry-run safe preview**:
   - `oh --dry-run` previews resolved runtime settings, auth state, skills, commands, tools, and configured MCP servers without executing the model, tools, or subagents.
   - Dry-run now reports a `ready` / `warning` / `blocked` readiness verdict with concrete next-step suggestions such as fixing auth, fixing MCP config, or running the prompt directly.
@@ -215,6 +216,7 @@ OpenHarness evolves through **small, frequent, layered releases** — each versi
 | **UX & Observability** | v0.1.7, v0.1.8 | React/Ink TUI polish, Markdown rendering, dry-run preview, readiness verdicts |
 | **Multi-Agent** | v0.1.5, v0.1.6 | Subprocess teammates, background task polling, team lifecycle management |
 | **Safety** | v0.1.4 | Sensitive-path protection, hardened URL validation, permission serialization |
+| **DAG-Native** | unreleased | Task DAG graph model, CPM critical path, topological sort, shared prerequisite context, experiment runner — an incremental package extension (`dag_native/`) integrated via `oh dag` CLI |
 
 Each release's full details are tracked in [`CHANGELOG.md`](CHANGELOG.md) and the per-release notes (`RELEASE_NOTES_v*.md`).
 
@@ -557,6 +559,7 @@ openharness/
   prompts/         # 📝 Context — system prompt assembly, CLAUDE.md, skills
   config/          # ⚙️ Settings — multi-layer config, migrations
   ui/              # 🖥️ React TUI — backend protocol + frontend
+  dag_native/      # 📊 DAG — task graph, critical path, shared context, experiments
 ```
 
 ### The Agent Loop
@@ -593,6 +596,108 @@ flowchart LR
     P --> X[Files Shell Web MCP Tasks]
     X --> Q
 ```
+
+---
+
+## 📊 DAG-Native: Task Graph Planning & Parallel Coordination
+
+The `dag_native` package is an incremental extension that adds **DAG-based task decomposition and parallel subagent coordination** on top of OpenHarness. Instead of running a large coding task sequentially, DAG-Native breaks it into a directed acyclic graph of sub-tasks, identifies the critical path, and assigns subagents to independent nodes in parallel — with shared prerequisite context to eliminate duplicated knowledge across agents.
+
+### Core Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Task DAG** | A directed acyclic graph where nodes are coding sub-tasks and edges represent data / control / resource dependencies |
+| **Topological Sort** | Kahn's algorithm producing a valid linear execution order respecting all dependencies |
+| **Critical Path** | The longest path through the DAG — determines the minimum makespan; nodes on the critical path get execution priority |
+| **Path Signatures** | Stable hash-based identifiers that detect nodes sharing the same DAG prefix, enabling context reuse |
+| **Shared Context** | Nodes with identical path signatures reuse prerequisite knowledge instead of each carrying full context |
+| **Coordination Modes** | Sequential, Parallel, and Critical-Path-First strategies for subagent orchestration |
+
+### Pipeline
+
+```
+Natural Language Task → Parse → Build DAG → Topo Sort → Critical Path → Subagent Assign → Execute
+```
+
+The planner (`DAGPlanner`) orchestrates the full pipeline: it parses a natural language task description into structured `TaskNode` definitions, builds a `TaskDAG` with dependency edges, runs topological sort and critical path analysis (CPM algorithm), assigns subagent types, and produces a complete `ExecutionPlan` with parallel groups and sequential chains.
+
+### CLI Commands
+
+```bash
+# Plan a coding task into a DAG execution plan
+oh dag plan -t "Add user authentication, rate limiting, and audit logging to the API server"
+
+# Plan from a file and save artifacts
+oh dag plan -f task_spec.md -o plan_output/
+
+# Analyze an existing DAG plan (visualize structure, critical path, timeline)
+oh dag analyze plan_output/dag.json
+
+# Run a quick demo showing all DAG pipeline stages (topo sort, critical path, shared context)
+oh dag demo
+
+# Run a baseline vs DAG-Native comparison experiment
+oh dag experiment -n 5 -o experiment_results/
+```
+
+### Python API
+
+```python
+from openharness.dag_native import (
+    TaskDAG, TaskNode, EdgeType,
+    topological_sort, reverse_topological_sort,
+    identify_critical_path,
+    DAGPlanner,
+    SharedContextManager,
+    ExperimentRunner,
+)
+
+# Build a DAG programmatically
+dag = TaskDAG(name="feature_x")
+dag.add_node(TaskNode("A", "Setup environment", "..."))
+dag.add_node(TaskNode("B", "Implement core logic", "..."))
+dag.add_node(TaskNode("C", "Write tests", "..."))
+dag.add_edge("A", "B", EdgeType.DATA_DEP)
+dag.add_edge("B", "C", EdgeType.DATA_DEP)
+dag.build()
+
+# Full planning pipeline
+planner = DAGPlanner()
+plan = planner.plan("Add feature X with tests and docs", task_name="feature_x")
+print(f"Topological order: {' → '.join(plan.topological_order)}")
+
+# Critical path analysis
+cp = identify_critical_path(dag)
+print(f"Critical path: {' → '.join(cp.critical_path)}")
+print(f"Length: {cp.critical_path_length:.1f}, Bottlenecks: {cp.bottleneck_nodes}")
+
+# Shared prerequisite context — nodes sharing a DAG prefix reuse knowledge
+ctx = SharedContextManager(dag)
+policy = ctx.get_reuse_policy("C")          # SAME_PATH / PARTIAL_OVERLAP / UNRELATED
+context, tokens = ctx.get_context_for_node("C")
+
+# Baseline vs Optimized comparison experiment
+runner = ExperimentRunner()
+comparison = runner.run_demo_experiment()
+print(f"Makespan: {comparison.baseline.total_makespan:.1f}s → {comparison.optimized.total_makespan:.1f}s "
+      f"({comparison.makespan_reduction_pct:.1f}% reduction)")
+print(f"Token saving: {comparison.token_saving_pct:.1f}%")
+print(f"Context reuse: {comparison.context_reuse_rate_improvement:.1%}")
+```
+
+### Measured Benefits
+
+The experiment runner (`oh dag experiment`) runs controlled comparisons between:
+
+| Metric | Baseline (Sequential) | Optimized (Critical Path + Shared Context) |
+|--------|----------------------|-------------------------------------------|
+| **Coordination** | Sequential execution, one subagent at a time | Critical-path-first parallel execution |
+| **Context** | Each subagent carries full project context | Shared prerequisite knowledge, per-agent deltas |
+| **Makespan** | Sum of all node durations | Critical path length (parallel branches overlap) |
+| **Token usage** | N × full context | Shared context + Σ per-agent incremental context |
+
+The `dag_native` package integrates with OpenHarness's existing coordinator, task manager, and agent definitions — it does not replace them. It is loaded as an optional CLI subcommand (`oh dag`) and can be used independently or alongside the interactive agent loop.
 
 ---
 
